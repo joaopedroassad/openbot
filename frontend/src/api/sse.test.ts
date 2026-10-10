@@ -57,6 +57,13 @@ describe("subscribeBusEvents", () => {
     expect(onEvent).toHaveBeenCalledWith({ event: "scheduled.updated", data: { id: "job-1", status: "delivered" } });
   });
 
+  it("subscribes to todo list updates", () => {
+    const { es, onEvent } = subscribe();
+    const data = { actor_id: "b1", handle: "eng", todos: [{ content: "Fix it", status: "in_progress" }] };
+    es.emit("todos.updated", { event: "todos.updated", thread_id: "t1", data });
+    expect(onEvent).toHaveBeenCalledWith({ event: "todos.updated", thread_id: "t1", data });
+  });
+
   it("closes the stream on unsubscribe", () => {
     const { es, stop } = subscribe();
     stop();

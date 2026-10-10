@@ -14,7 +14,11 @@ export interface RunEvent { id: string; run_id: string; seq: number; type: strin
 export interface RunDetail extends Run { events: RunEvent[]; }
 /** A bot with queued, unpicked mail in this thread (see the backend WaiterOut schema). */
 export interface Waiter { actor_id: string; handle: string | null; name: string | null; position: number; count: number; queue_len: number; }
-export interface ThreadDetail extends Thread { messages: Message[]; has_more: boolean; runs: Run[]; waiters?: Waiter[]; }
+/** One item on a bot's todo list (see the backend TodoItemOut schema). */
+export interface TodoItem { content: string; status: "pending" | "in_progress" | "completed"; }
+/** A bot's todo list in this thread, as last written with the todo_write tool. */
+export interface TodoList { actor_id: string; handle: string | null; todos: TodoItem[]; }
+export interface ThreadDetail extends Thread { messages: Message[]; has_more: boolean; runs: Run[]; waiters?: Waiter[]; todos?: TodoList[]; }
 export interface DirectoryEntry { name: string; path: string; }
 export interface DirectoryListing { path: string; parent: string | null; entries: DirectoryEntry[]; }
 export interface ThreadUsage { model_calls: number; prompt_tokens: number; completion_tokens: number; cache_read_tokens: number; cache_write_tokens?: number; reasoning_tokens?: number; cost_usd?: number; }

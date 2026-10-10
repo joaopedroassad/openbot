@@ -93,7 +93,7 @@ PR description conventions:
 CI gate before hand-off:
 - Before mentioning @reviewer or any other bot, run local `ruff check`/lint plus full test suites, push, then
   `gh pr checks <n> --watch` until all checks pass. Never request review on a red CI. CI must go green before QA picks it up.""",
-        "tool_names": ["run_shell", "read_file", "write_file", "edit_file", "list_files", "search_code"], "approval_tools": [],
+        "tool_names": ["run_shell", "read_file", "write_file", "edit_file", "list_files", "search_code", "todo_write"], "approval_tools": [],
     },
     {
         "handle": "reviewer", "name": "Reviewer",

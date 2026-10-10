@@ -404,6 +404,7 @@ def test_selectable_names():
         "read_bot_instructions",
         "update_bot_description",
         "update_bot_instructions",
+        "todo_write",
     ]
 
 

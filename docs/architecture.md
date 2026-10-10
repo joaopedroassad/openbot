@@ -226,6 +226,10 @@ The system prompt contains, in order:
 3. Roster of every other enabled bot with handle and description.
 4. Up to eight memories from the bot's namespace, ranked by semantic similarity to the concatenated
    text of the trigger messages.
+5. The bot's todo list for this thread, when it has the `todo_write` tool and has saved a list
+   (`thread_todo_lists`). The list is read once per run; if summarization folds a long run's
+   messages, the saved list is appended to the summary as well, since the `todo_write` calls that
+   built it may be among the folded messages.
 
 The message history is built from the newest messages backwards until either
 `HISTORY_TOKEN_BUDGET` (24k, estimated at chars/4) or `HISTORY_MAX_MESSAGES` (80) is hit. The bot's
@@ -279,7 +283,7 @@ Restart: `waiting_human` runs survive because their state is in the checkpointer
 | Scope | State | Where | Lifetime |
 |---|---|---|---|
 | Run | Agent transcript, interrupt, usage counters, events | checkpointer, `runs`, `run_events` | Created per run. Transcript needed until resume and reflection are done (G5). |
-| Thread | Messages, participants, default bot, working directory, hop-limit flag, semantic message index | `threads`, `messages`, `thread_participants`, store | Life of the thread. This is the task's context. |
+| Thread | Messages, participants, default bot, working directory, hop-limit flag, semantic message index, each bot's todo list | `threads`, `messages`, `thread_participants`, `thread_todo_lists`, store | Life of the thread. This is the task's context. |
 | Bot | Profile (instructions, model, tools), **memories**, pending reflection batch | `actors`, `bot_profiles`, store, in-process | Life of the bot. Memories are the only learned state. |
 | Process | Workers, wake events, semaphore, event bus subscribers, reflection timers | memory | Lost on restart; rebuilt from the tables (`ActorSystem.start`). |
 

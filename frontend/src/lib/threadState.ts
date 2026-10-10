@@ -1,8 +1,8 @@
-import type { BusEvent, Message, Run, RunDetail, RunEvent, ThreadDetail, Waiter } from "../api/types";
+import type { BusEvent, Message, Run, RunDetail, RunEvent, ThreadDetail, TodoList, Waiter } from "../api/types";
 
-export interface ThreadState { threadId?: string; title?: string; messages: Message[]; runs: Record<string, Run>; runEvents: Record<string, RunEvent[]>; streaming: Record<string, string>; waiters: Waiter[]; }
+export interface ThreadState { threadId?: string; title?: string; messages: Message[]; runs: Record<string, Run>; runEvents: Record<string, RunEvent[]>; streaming: Record<string, string>; waiters: Waiter[]; todos: TodoList[]; }
 
-export const emptyThreadState = (threadId?: string): ThreadState => ({ threadId, messages: [], runs: {}, runEvents: {}, streaming: {}, waiters: [] });
+export const emptyThreadState = (threadId?: string): ThreadState => ({ threadId, messages: [], runs: {}, runEvents: {}, streaming: {}, waiters: [], todos: [] });
 
 const sortMsgs = (ms: Message[]) => [...ms].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
 
@@ -19,8 +19,8 @@ export function hydrate(state: ThreadState, detail: ThreadDetail): ThreadState {
     if (known && !OPEN_RUN_STATUSES.has(known.status)) return;
     runs[r.id] = r;
   });
-  // detail.waiters is optional so a page rendered against an older backend degrades to "no waiters".
-  return { ...state, title: detail.title, messages: sortMsgs([...byId.values()]), runs, waiters: detail.waiters ?? [] };
+  // detail.waiters / detail.todos are optional so a page rendered against an older backend degrades to none.
+  return { ...state, title: detail.title, messages: sortMsgs([...byId.values()]), runs, waiters: detail.waiters ?? [], todos: detail.todos ?? [] };
 }
 
 /** Ids of this thread's runs that are still queued, running or waiting on a human. */
@@ -58,6 +58,14 @@ export function mergeRun(state: ThreadState, detail: RunDetail): ThreadState {
   };
 }
 
+/** Put one bot's freshly written list in place of its old one; an empty list removes it. */
+function replaceTodoList(lists: TodoList[], next: TodoList): TodoList[] {
+  const others = lists.filter((l) => l.actor_id !== next.actor_id);
+  if (!next.todos?.length) return others;
+  const i = lists.findIndex((l) => l.actor_id === next.actor_id);
+  return i === -1 ? [...others, next] : lists.map((l) => (l.actor_id === next.actor_id ? next : l));
+}
+
 export function reduceThreadEvent(state: ThreadState, e: BusEvent): ThreadState {
   switch (e.event) {
     case "message.created": {
@@ -78,6 +86,8 @@ export function reduceThreadEvent(state: ThreadState, e: BusEvent): ThreadState 
       // Same thread only: the SSE subscription filters, but the reducer is also the last line of
       // defense for events that reach it from anywhere else.
       return e.thread_id === state.threadId ? { ...state, waiters: e.data?.waiters ?? [] } : state;
+    case "todos.updated":
+      return e.thread_id === state.threadId && e.data?.actor_id ? { ...state, todos: replaceTodoList(state.todos, e.data) } : state;
     case "run.event": {
       const d = e.data;
       if (d.type === "text_delta") {
