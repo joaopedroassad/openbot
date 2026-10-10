@@ -260,11 +260,24 @@ class WaiterOut(BaseModel):
     queue_len: int = 1
 
 
+class TodoItemOut(BaseModel):
+    content: str
+    status: str
+
+
+class TodoListOut(BaseModel):
+    """A bot's todo list in a thread, as last written with the todo_write tool."""
+    actor_id: str
+    handle: str | None = None
+    todos: list[TodoItemOut] = []
+
+
 class ThreadDetail(ThreadOut):
     messages: list[MessageOut] = []
     has_more: bool = False
     runs: list[RunOut] = []
     waiters: list[WaiterOut] = []
+    todos: list[TodoListOut] = []
 
 
 class ThreadUsage(BaseModel):

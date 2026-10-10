@@ -154,6 +154,23 @@ describe("ThreadPage window re-entry", () => {
     expect(el.querySelector('[aria-label="tokens out: 678 tok"] path')?.getAttribute("d")).toBe("M19 12H5M12 5l-7 7 7 7");
   });
 
+  it("shows the bots' todo lists from the thread detail and keeps them live", async () => {
+    const todos = [{ actor_id: "b1", handle: "bot", todos: [{ content: "Write the parser", status: "in_progress" as const }] }];
+    fake.api.getThread = (id: string) => Promise.resolve({ ...detail(id, [...(server[id] ?? [])]), todos }) as never;
+    await mount("/threads/t1");
+    await until(() => text().includes("Write the parser"), "todo list from the thread detail");
+    const panel = () => el.querySelector('[aria-label="@bot todo list"]');
+    expect(panel()?.textContent).toContain("0/1");
+
+    const next = { actor_id: "b1", handle: "bot", todos: [{ content: "Write the parser", status: "completed" }, { content: "Run the tests", status: "in_progress" }] };
+    await act(async () => { sse.onEvent?.({ event: "todos.updated", thread_id: "t1", data: next }); });
+    expect(panel()?.textContent).toContain("1/2");
+    expect(panel()?.textContent).toContain("Run the tests");
+
+    await act(async () => { sse.onEvent?.({ event: "todos.updated", thread_id: "t1", data: { ...next, todos: [] } }); });
+    expect(panel()).toBeNull();
+  });
+
   it("keeps the full long title accessible and moves focus into the actions menu", async () => {
     const longTitle = "A thread title long enough to exercise the responsive two-line clamp without losing its accessible name ".repeat(3);
     fake.api.getThread = (id: string) => Promise.resolve({ ...detail(id, [...(server[id] ?? [])]), title: longTitle }) as never;

@@ -374,9 +374,13 @@ For how these pieces fit together inside the backend, see [docs/architecture.md]
 ## Tools and plugins
 
 Bots select from a registry of built-in tools (`run_shell`, `read_file`, `write_file`,
-`list_files`, `search_code`, `http_request`, `fetch_url`) plus a handful of
+`list_files`, `search_code`, `http_request`, `fetch_url`, `todo_write`) plus a handful of
 core tools every bot always has (`list_bots`, `ask_human`, `read_history`,
 `recall_messages`, and LangMem's `manage_memory`/`search_memory`).
+
+`todo_write` gives a bot a todo list for the thread it is working in. The bot rewrites the whole
+list on each call; the list is saved per thread and bot, shown live above the composer in the
+thread view, and given back to the bot on its later runs in that thread. The seeded engineer has it.
 
 `run_shell` runs `bash -lc`. On Windows, it and `patch_file` use the `bash.exe` and `patch.exe` of
 [Git for Windows](https://git-scm.com/download/win), found next to `git` on `PATH` or in its standard

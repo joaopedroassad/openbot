@@ -14,6 +14,7 @@ from openbot.api.schemas import (
     ThreadOut,
     ThreadUpdate,
     ThreadUsage,
+    TodoListOut,
 )
 from openbot.db.models import (
     ACTIVE_RUN_STATUSES,
@@ -23,6 +24,7 @@ from openbot.db.models import (
     Run,
     Thread,
     ThreadParticipant,
+    ThreadTodoList,
 )
 from openbot.runtime.delivery import (
     DEFAULT_BOT_HANDLE,
@@ -121,7 +123,17 @@ async def get_thread(thread_id: str, before: str | None = None, limit: int = Que
     # Waiting bots are computed from the inbox queue, not stored, so a freshly opened page is right
     # even if every waiters.updated event was published before the SSE socket existed.
     d.waiters = await waiters_for(session, thread_id)
+    d.todos = await todo_lists_for(session, thread_id)
     return d
+
+
+async def todo_lists_for(session: AsyncSession, thread_id: str) -> list[TodoListOut]:
+    """Every bot's saved todo list in the thread, oldest list first."""
+    rows = (await session.execute(
+        select(ThreadTodoList, Actor.handle).join(Actor, Actor.id == ThreadTodoList.actor_id)
+        .where(ThreadTodoList.thread_id == thread_id).order_by(ThreadTodoList.created_at)
+    )).all()
+    return [TodoListOut(actor_id=row.actor_id, handle=handle, todos=row.items) for row, handle in rows]
 
 
 @router.get("/{thread_id}/usage", response_model=ThreadUsage)
@@ -154,7 +166,7 @@ async def update_thread(thread_id: str, body: ThreadUpdate, session: AsyncSessio
 @router.delete("/{thread_id}", status_code=204)
 async def delete_thread(thread_id: str, session: AsyncSession = Depends(get_session)):
     thread = await get_thread_or_404(session, thread_id)
-    for model in (InboxItem, Run, Message, ThreadParticipant):
+    for model in (InboxItem, Run, Message, ThreadParticipant, ThreadTodoList):
         for row in (await session.execute(select(model).where(model.thread_id == thread_id))).scalars():
             await session.delete(row)
     await session.flush()  # remove children before the parent, or the DB cascade beats the ORM to them

@@ -170,6 +170,16 @@ class ScheduledMessage(TimestampMixin, Base):
     result_message_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
 
+class ThreadTodoList(TimestampMixin, Base):
+    """A bot's todo list in one thread, written whole by the todo_write tool."""
+    __tablename__ = "thread_todo_lists"
+    __table_args__ = (UniqueConstraint("thread_id", "actor_id", name="uq_thread_todo_list"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    thread_id: Mapped[str] = mapped_column(String(36), ForeignKey("threads.id", ondelete="CASCADE"), nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(36), ForeignKey("actors.id", ondelete="CASCADE"), nullable=False)
+    items: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+
+
 class InboxItem(Base):
     __tablename__ = "inbox_items"
     __table_args__ = (Index("ix_inbox_actor_status_created", "actor_id", "status", "created_at"),)

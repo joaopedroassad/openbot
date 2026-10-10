@@ -9,6 +9,7 @@ import { useBusEvents } from "../api/sse";
 import Composer from "../components/Composer";
 import MessageList from "../components/MessageList";
 import ThreadOdometer from "../components/ThreadOdometer";
+import TodoPanel from "../components/TodoPanel";
 import { Button, ErrorText, IconButton, OfflineNotice, Spinner } from "../components/ui";
 import { ArrowLeftIcon, ArrowRightIcon, ChevronLeftIcon, MoreIcon } from "../components/icons";
 import { isNearBottom, scrollToBottom } from "../lib/autoScroll";
@@ -260,6 +261,7 @@ export default function ThreadPage() {
         <MessageList state={state} participants={t.participants} onRunLoaded={(run) => setState((s) => mergeRun(s, run))} iconByActor={iconByActor} nameByActor={nameByActor} />
       </div>
       <div className="border-t border-line pt-3">
+        <TodoPanel lists={state.todos} />
         {notice && <p className="mb-1.5 text-xs text-warn">{notice}</p>}
         <ErrorText error={send.error} />
         <Composer key={id} threadId={id} handles={handles} running={!!openRuns} autoFocus={detail.data.messages.length === 0} onSend={async (text, attachments) => { await send.mutateAsync({ content: text, attachments }); }} />      </div>

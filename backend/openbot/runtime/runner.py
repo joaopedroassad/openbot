@@ -16,7 +16,13 @@ from langchain.agents.middleware import (
     ModelCallLimitMiddleware,
     SummarizationMiddleware,
 )
-from langchain_core.messages import AIMessage, AIMessageChunk, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    AIMessageChunk,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from langchain_core.tracers.context import collect_runs
 from langgraph.types import Command
 from sqlalchemy import func, select
@@ -41,6 +47,7 @@ from openbot.runtime.retry import ModelRetryMiddleware
 from openbot.runtime.tool_failures import ToolFailureMiddleware
 from openbot.tools.builtin.core import CORE_TOOLS
 from openbot.tools.builtin.scheduling import SCHEDULING_TOOLS
+from openbot.tools.builtin.todo import load_todos, todo_list_section
 from openbot.tools.builtin.workspace import thread_workspace_root
 from openbot.tools.context import RunContext
 
@@ -228,6 +235,28 @@ class RunMessagesSummarization(SummarizationMiddleware):
     def _should_summarize_based_on_reported_tokens(self, messages, threshold) -> bool:
         return False
 
+    async def abefore_model(self, state, runtime):
+        """Summarize as the parent does, then put the bot's saved todo list into the summary.
+
+        The todo_write calls that built the list may be among the messages folded into the summary,
+        and the system prompt only holds the list as it was when the run started."""
+        update = await super().abefore_model(state, runtime)
+        ctx = getattr(runtime, "context", None)
+        if update is None or not isinstance(ctx, RunContext):
+            return update
+        async with ctx.services.session_factory() as session:
+            todos = await load_todos(session, ctx.thread_id, ctx.actor_id)
+        if not todos:
+            return update
+        section = todo_list_section(todos)
+        messages = [
+            m.model_copy(update={"content": f"{m.content}\n\n{section}"})
+            if isinstance(m, HumanMessage) and m.additional_kwargs.get("lc_source") == "summarization"
+            else m
+            for m in update["messages"]
+        ]
+        return {**update, "messages": messages}
+
 
 class Runner:
     def __init__(self, services) -> None:
@@ -404,6 +433,12 @@ class Runner:
                 if trigger_ids
                 else []
             )
+            # The list the bot saved with todo_write, so it carries over into this run.
+            todos = (
+                await load_todos(session, thread.id, bot.id)
+                if "todo_write" in bot.bot.tool_names
+                else []
+            )
         by_id = {a.id: a for a in all_actors}
         by_handle = {a.handle: a for a in all_actors}
         participants = [by_id[p.actor_id].name for p in parts if p.actor_id in by_id]
@@ -464,6 +499,7 @@ class Runner:
             tool_names=[n for n in bot.bot.tool_names if self.s.registry.has(n)],
             default_bot_handle=default_bot_handle,
             scoped=scoped,
+            todos=todos,
         )
         prompt = SystemMessage(
             content=[
@@ -527,7 +563,7 @@ class Runner:
                         keep_turns=2,
                         clear_at_least=st.context_clear_at_least,
                         clear_tool_inputs=True,
-                        exclude_tools=("ask_human", "manage_memory"),
+                        exclude_tools=("ask_human", "manage_memory", "todo_write"),
                         placeholder=CLEARED_TOOL_RESULT,
                     )
                 ]
